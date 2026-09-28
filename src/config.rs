@@ -55,7 +55,7 @@ impl Default for Config {
             backlight: Backlight::Always,
             click_active: ClickActive::Minimize,
             buttons: true,
-            opacity: 0.66,
+            opacity: 0.27,
             tint: "wallpaper".into(),
             blur: true,
             output: "all".into(),
