@@ -1,0 +1,15 @@
+[Unit]
+Description=Quai, two-column Unity-style dock
+PartOf=graphical-session.target
+After=graphical-session.target
+StartLimitIntervalSec=120
+StartLimitBurst=20
+
+[Service]
+ExecStart=%h/.local/bin/quai
+Restart=on-failure
+RestartSec=2
+Slice=session.slice
+
+[Install]
+WantedBy=cosmic-session.target
