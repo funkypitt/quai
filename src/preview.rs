@@ -60,6 +60,7 @@ pub fn write(out: &Path, height: f32, scale: f32) -> Result<()> {
             2 => (3, true, 0.0),
             4 => (2, false, 0.0),
             5 => (0, false, 0.9),
+            7 => (2, false, 0.0),
             _ => (0, false, 0.0),
         };
         tile(key, 0, top + i as f32 * PITCH, windows, active, pulse, false, &mut db);
@@ -68,7 +69,12 @@ pub fn write(out: &Path, height: f32, scale: f32) -> Result<()> {
     for (i, key) in open.iter().enumerate() {
         tile(key, 1, top + i as f32 * PITCH, 1 + i % 2, false, 0.0, false, &mut db);
     }
-    let name = tiles.get(4).map(|t| t.app.name.clone()).unwrap_or_default();
+    // The tooltip and the menu are those of the pinned tiles they point at.
+    let pinned_name = |row: usize| {
+        let at = tiles.iter().find(|t| t.col == 0 && !t.fixed && t.y == top + row as f32 * PITCH);
+        at.map(|t| t.app.name.clone()).unwrap_or_default()
+    };
+    let (name, menu_name) = (pinned_name(4), pinned_name(7));
 
     let source = wallpaper::current(&[]);
     let tint = match config.tint.trim().to_ascii_lowercase().as_str() {
@@ -125,10 +131,10 @@ pub fn write(out: &Path, height: f32, scale: f32) -> Result<()> {
         pix.draw_pixmap(x, y, t.as_ref(), &paint, Transform::identity(), None);
     }
     let rows: Vec<MenuRow<u8>> = vec![
-        MenuRow::Header(name),
+        MenuRow::Header(menu_name.clone()),
         MenuRow::Separator,
-        MenuRow::Entry { label: "Boîte de réception — Mailbot".into(), action: 0, check: Some(true) },
-        MenuRow::Entry { label: "Nouveau message".into(), action: 0, check: Some(false) },
+        MenuRow::Entry { label: format!("Documents — {menu_name}"), action: 0, check: Some(true) },
+        MenuRow::Entry { label: format!("Images — {menu_name}"), action: 0, check: Some(false) },
         MenuRow::Separator,
         MenuRow::Entry { label: tr(Msg::NewWindow).into(), action: 0, check: None },
         MenuRow::Separator,

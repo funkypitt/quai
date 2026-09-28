@@ -1,89 +1,92 @@
 # Quai
 
-Un dock latéral à deux colonnes pour le bureau COSMIC, dans la présentation
-du lanceur d'Unity (Ubuntu) : chaque tuile est éclairée de la couleur de son
-icône.
+English · [Français](README.fr.md)
 
-- **Colonne de gauche** : les applications épinglées.
-- **Colonne de droite** : les applications ouvertes qui ne sont pas épinglées,
-  regroupées par application ou une tuile par fenêtre, au choix.
+A two-column side dock for the COSMIC desktop, in the style of Unity's
+launcher (Ubuntu): each tile is lit with the colour of its icon.
 
-Largeur fixe de 130 px : deux lanceurs d'Unity côte à côte, dans ses
-proportions par défaut (tuiles de 54 px, icônes de 48 px, 5 px d'intervalle).
+<img src="docs/quai.png" width="550" alt="Quai: pinned applications on the left, open ones on the right, a tooltip and a tile's menu">
+
+- **Left column**: the pinned applications.
+- **Right column**: the open applications that are not pinned, grouped per
+  application or one tile per window, as you choose.
+
+Fixed width of 130 px: two Unity launchers side by side, in its default
+proportions (54 px tiles, 48 px icons, 5 px gaps).
 
 ## Usage
 
-| Geste | Effet |
+| Gesture | Effect |
 |---|---|
-| Clic | lance l'application, ou revient à sa dernière fenêtre |
-| Clic sur l'application en cours | passe à sa fenêtre suivante ; s'il n'y en a qu'une, la réduit |
-| Clic du milieu | ouvre une nouvelle fenêtre |
-| Clic droit sur une tuile | fenêtres, actions de l'application, épingler ou détacher, fermer |
-| Clic droit ailleurs | réglages du dock |
-| Glisser dans la colonne de gauche | épingle, ou change l'ordre |
-| Glisser hors de la colonne de gauche | détache |
-| Molette | fait défiler une colonne trop longue |
+| Click | starts the application, or returns to its last window |
+| Click on the current application | goes to its next window; if it has only one, minimizes it |
+| Middle click | opens a new window |
+| Right click on a tile | windows, application actions, pin or unpin, close |
+| Right click elsewhere | dock settings |
+| Drag into the left column | pins, or changes the order |
+| Drag out of the left column | unpins |
+| Wheel | scrolls a column that is too long |
 
-Les petites flèches reprennent celles d'Unity : sur le bord extérieur, une
-par fenêtre ouverte (trois au plus) ; au centre, celle de l'application en
-cours.
+The small arrows are Unity's: on the outer edge, one per open window (three
+at most); in the middle, the one of the current application.
 
 ## Installation
 
-Il faut Rust (`rustup`) ; aucune autre dépendance à installer.
+Rust is needed (`rustup`); there is no other dependency to install.
 
 ```sh
-./install.sh                     # compile, installe, démarre avec la session
-./install.sh --cosmic-dock off   # éteint en plus le dock de COSMIC
-./uninstall.sh                   # retire Quai et rend le dock de COSMIC
+./install.sh                     # builds, installs, starts with the session
+./install.sh --cosmic-dock off   # also switches COSMIC's dock off
+./uninstall.sh                   # removes Quai and gives COSMIC's dock back
 ```
 
-Quai tourne comme service de la session (`systemctl --user status quai`),
-relancé s'il tombe.
+Quai runs as a service of the session (`systemctl --user status quai`),
+restarted if it fails.
 
-## Réglages
+## Settings
 
-`~/.config/quai/config.toml`, relu dès qu'il change. Les mêmes choix se font
-par un clic droit sur le dock. Au premier lancement, les applications
-épinglées du dock de COSMIC sont reprises.
+`~/.config/quai/config.toml`, read again as soon as it changes. The same
+choices are offered by a right click on the dock. On first start, the
+applications pinned in COSMIC's dock are taken over.
 
-| Clé | Valeurs | Rôle |
+| Key | Values | Role |
 |---|---|---|
-| `pinned` | liste | applications épinglées, de haut en bas |
-| `group_windows` | `true`, `false` | à droite : une tuile par application ou par fenêtre |
-| `backlight` | `"always"`, `"running"` | toutes les tuiles éclairées (Unity), ou seulement les applications ouvertes |
-| `click_active` | `"minimize"`, `"cycle"` | effet d'un clic sur l'application en cours |
-| `buttons` | `true`, `false` | boutons Applications et Espaces de travail |
-| `opacity` | 0.0 à 1.0 | fond du dock |
-| `tint` | `"wallpaper"`, `"none"`, `"#rrggbb"` | couleur du dock : tirée du fond d'écran (Unity), presque noire, ou choisie |
-| `blur` | `true`, `false` | flou derrière le dock |
-| `output` | `"all"` ou un nom d'écran | écrans où le dock paraît |
-| `icon_theme` | nom | vide : le thème du bureau |
+| `pinned` | list | pinned applications, top to bottom |
+| `group_windows` | `true`, `false` | on the right: one tile per application or per window |
+| `backlight` | `"always"`, `"running"` | every tile lit (Unity), or only the open applications |
+| `click_active` | `"minimize"`, `"cycle"` | effect of a click on the current application |
+| `buttons` | `true`, `false` | Applications and Workspaces buttons |
+| `opacity` | 0.0 to 1.0 | dock background |
+| `tint` | `"wallpaper"`, `"none"`, `"#rrggbb"` | colour of the dock: drawn from the wallpaper (Unity), near black, or chosen |
+| `blur` | `true`, `false` | blur behind the dock |
+| `output` | `"all"` or an output name | screens where the dock shows |
+| `icon_theme` | name | empty: the desktop's theme |
 
-## Limites connues
+## Known limits
 
-- Les fenêtres de tous les espaces de travail sont montrées.
-- Les protocoles `zcosmic_*` de COSMIC ne sont pas stables : une mise à jour
-  de COSMIC peut demander d'adapter Quai (la version de la bibliothèque est
-  figée dans `Cargo.toml`).
-- Essayé sur un seul écran, à l'échelle 100 %.
+- The windows of all workspaces are shown.
+- COSMIC's `zcosmic_*` protocols are not stable: an update of COSMIC may
+  require adapting Quai (the version of the library is pinned in
+  `Cargo.toml`).
+- Tried on a single screen, at 100 % scale.
 
-## Développement
+## Development
 
 ```sh
 cargo test
-cargo run -- --preview apercu.png      # dessine le dock dans une image, sans écran
-QUAI_LOG=debug cargo run               # journal détaillé
-cargo run -- --test-panel 10           # fausse barre, pour éprouver le placement
-cargo run -- --windows                 # fenêtres ouvertes, application reconnue, position
+cargo run -- --preview preview.png     # draws the dock into an image, without a display
+QUAI_LOG=debug cargo run               # detailed log
+cargo run -- --test-panel 10           # fake panel, to try the placement
+cargo run -- --windows                 # open windows, application recognised, position
 ```
 
-Deux particularités de COSMIC dont le code tient compte :
+Two particularities of COSMIC that the code allows for:
 
-- il sert les panneaux dans leur ordre d'arrivée : le dock se replace quand
-  une barre arrive après lui (`check_placement`) ;
-- il ne resserre les fenêtres maximisées que lorsqu'un panneau change de
-  taille, pas lorsqu'il arrive : le dock naît avec un pixel de moins, puis
-  prend sa largeur (`settle`).
+- it serves panels in their order of arrival: the dock moves when a panel
+  arrives after it (`check_placement`);
+- it only tightens maximized windows when a panel changes size, not when it
+  arrives: the dock is born one pixel narrower, then takes its width
+  (`settle`).
 
-Licence : GPL-3.0-or-later.
+Licence: GPL-3.0-or-later. The wallpaper in the picture is Adwaita, by
+Jakub Steiner, from the GNOME backgrounds (CC BY-SA 3.0).
