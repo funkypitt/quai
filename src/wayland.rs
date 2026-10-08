@@ -18,6 +18,7 @@ use cosmic_client_toolkit::{
         seat::{
             Capability, SeatHandler, SeatState,
             pointer::{CursorIcon, PointerEvent, PointerEventKind, PointerHandler, ThemeSpec},
+            touch::TouchHandler,
         },
         shell::{
             WaylandSurface,
@@ -37,7 +38,7 @@ use std::time::Duration;
 use wayland_client::{
     Connection, Dispatch, QueueHandle, WEnum,
     globals::registry_queue_init,
-    protocol::{wl_output, wl_pointer, wl_seat, wl_surface},
+    protocol::{wl_output, wl_pointer, wl_seat, wl_surface, wl_touch},
 };
 use wayland_protocols::{
     ext::{
@@ -265,26 +266,44 @@ impl SeatHandler for Dock {
     }
     fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
     fn new_capability(&mut self, _: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat, capability: Capability) {
-        if capability == Capability::Pointer && self.themed_pointer.is_none() {
-            let cursor_surface = self.compositor.create_surface(qh);
-            match self.seat_state.get_pointer_with_theme(qh, &seat, self.shm.wl_shm(), cursor_surface, ThemeSpec::default()) {
-                Ok(p) => {
-                    self.themed_pointer = Some(p);
-                    self.seat = Some(seat);
+        match capability {
+            Capability::Pointer if self.themed_pointer.is_none() => {
+                let cursor_surface = self.compositor.create_surface(qh);
+                match self.seat_state.get_pointer_with_theme(qh, &seat, self.shm.wl_shm(), cursor_surface, ThemeSpec::default()) {
+                    Ok(p) => self.themed_pointer = Some(p),
+                    Err(e) => log::error!("no pointer: {e}"),
                 }
-                Err(e) => log::error!("no pointer: {e}"),
             }
-        } else if self.seat.is_none() {
+            // a touchscreen: fingers go the pointer's way (dock.rs, touch_*)
+            Capability::Touch if self.touch_dev.is_none() => match self.seat_state.get_touch(qh, &seat) {
+                Ok(t) => {
+                    self.touch_dev = Some(t);
+                    log::info!("touch input available");
+                }
+                Err(e) => log::error!("no touch: {e}"),
+            },
+            _ => {}
+        }
+        if self.seat.is_none() {
             self.seat = Some(seat);
         }
     }
     fn remove_capability(&mut self, _: &Connection, _: &QueueHandle<Self>, seat: wl_seat::WlSeat, capability: Capability) {
-        if capability == Capability::Pointer && self.seat.as_ref() == Some(&seat) {
+        if self.seat.as_ref() != Some(&seat) {
+            return;
+        }
+        if capability == Capability::Pointer {
             if let Some(p) = self.themed_pointer.take() {
                 p.pointer().release();
             }
             self.pointer = Default::default();
             self.drag = None;
+        }
+        if capability == Capability::Touch {
+            if let Some(t) = self.touch_dev.take() {
+                t.release();
+            }
+            self.touch_cancel();
         }
     }
     fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, seat: wl_seat::WlSeat) {
@@ -340,6 +359,23 @@ impl PointerHandler for Dock {
                 }
             }
         }
+    }
+}
+
+impl TouchHandler for Dock {
+    fn down(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_touch::WlTouch, serial: u32, _: u32, surface: wl_surface::WlSurface, id: i32, position: (f64, f64)) {
+        self.touch_down(id, &surface, position.0 as f32, position.1 as f32, serial);
+    }
+    fn up(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_touch::WlTouch, serial: u32, _: u32, id: i32) {
+        self.touch_up(id, serial);
+    }
+    fn motion(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_touch::WlTouch, _: u32, id: i32, position: (f64, f64)) {
+        self.touch_motion(id, position.0 as f32, position.1 as f32);
+    }
+    fn shape(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_touch::WlTouch, _: i32, _: f64, _: f64) {}
+    fn orientation(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_touch::WlTouch, _: i32, _: f64) {}
+    fn cancel(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_touch::WlTouch) {
+        self.touch_cancel();
     }
 }
 
@@ -443,6 +479,7 @@ sctk::delegate_output!(Dock);
 sctk::delegate_shm!(Dock);
 sctk::delegate_seat!(Dock);
 sctk::delegate_pointer!(Dock);
+sctk::delegate_touch!(Dock);
 sctk::delegate_layer!(Dock);
 sctk::delegate_xdg_shell!(Dock);
 sctk::delegate_xdg_popup!(Dock);

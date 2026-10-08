@@ -1,1 +1,6 @@
+packaging/*.deb
+packaging/deb-root/
+packaging/pkg/
+packaging/*.pkg.tar.*
+packaging/src/
 /target

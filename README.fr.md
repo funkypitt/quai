@@ -27,6 +27,9 @@ proportions par défaut (tuiles de 54 px, icônes de 48 px, 5 px d'intervalle).
 | Glisser dans la colonne de gauche | épingle, ou change l'ordre |
 | Glisser hors de la colonne de gauche | détache |
 | Molette | fait défiler une colonne trop longue |
+| Toucher (écran tactile) | comme un clic |
+| Doigt maintenu sur une tuile | comme un clic droit : le menu s'ouvre sous le doigt |
+| Doigt glissé | comme un glisser à la souris |
 
 Les petites flèches reprennent celles d'Unity : sur le bord extérieur, une
 par fenêtre ouverte (trois au plus) ; au centre, celle de l'application en
@@ -34,16 +37,29 @@ cours.
 
 ## Installation
 
-Il faut Rust (`rustup`) ; aucune autre dépendance à installer.
+Sur Pop!_OS et Ubuntu, depuis le même dépôt apt que les applications de
+bureau Reader's ([funkypitt.github.io/apt-repo](https://funkypitt.github.io/apt-repo)) :
 
 ```sh
-./install.sh                     # compile, installe, démarre avec la session
-./install.sh --cosmic-dock off   # éteint en plus le dock de COSMIC
+sudo apt install quai
+```
+
+Le paquet démarre Quai avec chaque session COSMIC, pour tous les utilisateurs,
+dès la connexion suivante ; le `.deb` est aussi joint à chaque
+[version](https://github.com/funkypitt/quai/releases). Sur Arch et Manjaro,
+`packaging/PKGBUILD`.
+
+Depuis les sources, il faut Rust (`rustup`) ; aucune autre dépendance :
+
+```sh
+./install.sh                     # compile, installe pour cet utilisateur, démarre avec la session
 ./uninstall.sh                   # retire Quai et rend le dock de COSMIC
 ```
 
 Quai tourne comme service de la session (`systemctl --user status quai`),
-relancé s'il tombe.
+relancé s'il tombe. Au démarrage il éteint le dock de COSMIC, pour qu'un seul
+dock paraisse (`hide_cosmic_dock = false` dans les réglages garde les deux) ;
+`quai --cosmic-dock on` rend le dock de COSMIC à tout moment.
 
 ## Réglages
 
@@ -63,6 +79,7 @@ par un clic droit sur le dock. Au premier lancement, les applications
 | `blur` | `true`, `false` | flou derrière le dock |
 | `output` | `"all"` ou un nom d'écran | écrans où le dock paraît |
 | `icon_theme` | nom | vide : le thème du bureau |
+| `hide_cosmic_dock` | `true`, `false` | éteindre le dock de COSMIC au démarrage de Quai |
 
 ## Limites connues
 
@@ -70,7 +87,8 @@ par un clic droit sur le dock. Au premier lancement, les applications
 - Les protocoles `zcosmic_*` de COSMIC ne sont pas stables : une mise à jour
   de COSMIC peut demander d'adapter Quai (la version de la bibliothèque est
   figée dans `Cargo.toml`).
-- Essayé sur un seul écran, à l'échelle 100 %.
+- Essayé sur un seul écran, à l'échelle 100 %. Le toucher passe par le même
+  chemin que la souris, mais n'a pas encore été essayé sur un écran tactile.
 
 ## Développement
 

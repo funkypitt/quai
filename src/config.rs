@@ -45,6 +45,8 @@ pub struct Config {
     pub icon_theme: String,
     /// Delay before a tooltip shows, in milliseconds.
     pub tooltip_delay_ms: u64,
+    /// Switch COSMIC's own dock off when Quai starts (`quai --cosmic-dock on` gives it back).
+    pub hide_cosmic_dock: bool,
 }
 
 impl Default for Config {
@@ -61,6 +63,7 @@ impl Default for Config {
             output: "all".into(),
             icon_theme: String::new(),
             tooltip_delay_ms: 350,
+            hide_cosmic_dock: true,
         }
     }
 }
@@ -96,6 +99,7 @@ const HEADER: &str = "\
 # blur             blur what lies behind the dock
 # output           \"all\" or an output name such as \"HDMI-A-4\"
 # icon_theme       empty = the desktop's theme
+# hide_cosmic_dock switch COSMIC's own dock off when Quai starts (quai --cosmic-dock on gives it back)
 
 ";
 

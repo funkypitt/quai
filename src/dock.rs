@@ -37,7 +37,7 @@ use std::{
 };
 use wayland_client::{
     QueueHandle,
-    protocol::{wl_output::WlOutput, wl_seat::WlSeat, wl_shm, wl_surface::WlSurface},
+    protocol::{wl_output::WlOutput, wl_seat::WlSeat, wl_shm, wl_surface::WlSurface, wl_touch::WlTouch},
 };
 use wayland_protocols::{
     ext::{
@@ -71,6 +71,8 @@ use crate::{
 };
 
 const DRAG_THRESHOLD: f32 = 8.0;
+/// A finger held still this long opens the menu, as the right button does.
+const LONG_PRESS_MS: u64 = 600;
 const LAUNCH_TIMEOUT: Duration = Duration::from_secs(12);
 pub const BTN_LEFT: u32 = 0x110;
 pub const BTN_RIGHT: u32 = 0x111;
@@ -189,6 +191,21 @@ pub struct Drag {
     pub pinned: Vec<String>,
 }
 
+/// A finger on the dock. Touch goes through the pointer's path — down is enter and
+/// press, motion is motion, up is release and leave — so taps, drags and the menu
+/// behave as with a mouse. One finger drives the dock; the others are ignored.
+pub struct TouchState {
+    pub id: i32,
+    /// The bar touched; `None` when the finger is on the menu.
+    pub bar: Option<usize>,
+    pub pos: (f32, f32),
+    pub origin: (f32, f32),
+    pub moved: bool,
+    /// The menu opened under this finger (held still), or the finger is on the menu.
+    pub menu: bool,
+    pub generation: u64,
+}
+
 #[derive(Default)]
 pub struct PointerState {
     pub bar: Option<usize>,
@@ -255,6 +272,9 @@ pub struct Dock {
     pub seat: Option<WlSeat>,
     pub themed_pointer: Option<ThemedPointer>,
     pub pointer: PointerState,
+    pub touch_dev: Option<WlTouch>,
+    pub touch: Option<TouchState>,
+    pub touch_generation: u64,
 
     pub bars: Vec<Bar>,
     pub popup: Option<PopupState>,
@@ -325,6 +345,9 @@ impl Dock {
             seat: None,
             themed_pointer: None,
             pointer: PointerState::default(),
+            touch_dev: None,
+            touch: None,
+            touch_generation: 0,
             bars: Vec::new(),
             popup: None,
             config,
@@ -1129,6 +1152,91 @@ impl Dock {
         } else {
             self.pointer_leave();
         }
+    }
+
+    // ---- touch: routed through the pointer path ---------------------------
+
+    pub fn touch_down(&mut self, id: i32, surface: &WlSurface, x: f32, y: f32, serial: u32) {
+        if self.touch.is_some() {
+            return;
+        }
+        self.touch_generation += 1;
+        let generation = self.touch_generation;
+        let state = |bar, menu| TouchState { id, bar, pos: (x, y), origin: (x, y), moved: false, menu, generation };
+        if self.popup.as_ref().is_some_and(|p| p.popup.wl_surface() == surface) {
+            if matches!(self.popup.as_ref().map(|p| &p.kind), Some(PopupKind::Menu { .. })) {
+                self.menu_motion(x, y);
+                self.touch = Some(state(None, true));
+            }
+            return;
+        }
+        let Some(bar) = self.bar_of(surface) else { return };
+        self.pointer_enter(bar, x, y);
+        self.pointer_press(bar, x, y, BTN_LEFT, serial);
+        self.touch = Some(state(Some(bar), false));
+        log::debug!("touch {id} down on bar {bar} at {x:.0},{y:.0}");
+        // A finger held still opens the menu, as the right button does.
+        let _ = self.loop_handle.insert_source(Timer::from_duration(Duration::from_millis(LONG_PRESS_MS)), move |_, _, dock| {
+            let held = dock.touch.as_ref().is_some_and(|t| t.generation == generation && !t.moved && !t.menu) && dock.drag.is_none();
+            if held {
+                if let Some(t) = dock.touch.as_mut() {
+                    t.menu = true;
+                }
+                // lifting the finger must not count as a click
+                dock.pointer.press = None;
+                let hit = dock.hit(bar, x, y);
+                dock.open_menu(bar, hit, y, serial);
+                dock.mark_dirty();
+                log::debug!("touch held: menu");
+            }
+            TimeoutAction::Drop
+        });
+    }
+
+    pub fn touch_motion(&mut self, id: i32, x: f32, y: f32) {
+        let Some(t) = self.touch.as_mut() else { return };
+        if t.id != id {
+            return;
+        }
+        t.pos = (x, y);
+        if (x - t.origin.0).hypot(y - t.origin.1) > DRAG_THRESHOLD {
+            t.moved = true;
+        }
+        match (t.bar, t.menu) {
+            (None, _) => self.menu_motion(x, y),
+            // the menu opened under the held finger: it waits for the next tap
+            (Some(_), true) => {}
+            (Some(bar), false) => self.pointer_motion(bar, x, y),
+        }
+    }
+
+    pub fn touch_up(&mut self, id: i32, serial: u32) {
+        let Some(t) = self.touch.take() else { return };
+        if t.id != id {
+            self.touch = Some(t);
+            return;
+        }
+        let (x, y) = t.pos;
+        log::debug!("touch {id} up at {x:.0},{y:.0}");
+        match (t.bar, t.menu) {
+            (None, _) => self.menu_click(x, y, serial),
+            (Some(_), true) => {}
+            (Some(bar), false) => {
+                self.pointer_release(bar, x, y, BTN_LEFT, serial);
+                // no hover lingers once the finger is gone
+                self.pointer_leave();
+            }
+        }
+    }
+
+    pub fn touch_cancel(&mut self) {
+        if self.touch.take().is_none() {
+            return;
+        }
+        self.pointer.press = None;
+        self.drag = None;
+        self.pointer_leave();
+        self.mark_dirty();
     }
 
     fn drop_tile(&mut self, d: Drag) {

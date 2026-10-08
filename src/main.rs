@@ -5,6 +5,7 @@
 
 mod apps;
 mod config;
+mod cosmicdock;
 mod dock;
 mod i18n;
 mod launch;
@@ -28,6 +29,7 @@ Usage:
   quai --preview FILE.png   draw the dock into an image, without a display
         [--height N] [--scale S]
   quai --windows            list the open windows and the application of each
+  quai --cosmic-dock on|off show COSMIC's own dock again, or hide it
   quai --version
   quai --help
 
@@ -87,6 +89,13 @@ fn main() -> Result<()> {
             return preview::write(&PathBuf::from(out), height, scale);
         }
         Some("--windows") => return windows::run(),
+        Some("--cosmic-dock") => {
+            return match value("--cosmic-dock").as_deref() {
+                Some("on") => cosmicdock::set(true),
+                Some("off") => cosmicdock::set(false),
+                _ => bail!("--cosmic-dock takes on or off"),
+            };
+        }
         Some("--test-panel") => {
             let seconds = value("--test-panel").and_then(|v| v.parse().ok()).unwrap_or(10);
             return testpanel::run(seconds);
@@ -95,5 +104,7 @@ fn main() -> Result<()> {
     }
 
     let _lock = single_instance()?;
-    wayland::run(config::Config::load_or_init())
+    let config = config::Config::load_or_init();
+    cosmicdock::hide_if_wanted(&config);
+    wayland::run(config)
 }

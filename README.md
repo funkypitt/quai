@@ -26,22 +26,38 @@ proportions (54 px tiles, 48 px icons, 5 px gaps).
 | Drag into the left column | pins, or changes the order |
 | Drag out of the left column | unpins |
 | Wheel | scrolls a column that is too long |
+| Tap (touchscreen) | as a click |
+| Finger held on a tile | as a right click: the menu opens under the finger |
+| Finger dragged | as a drag with the mouse |
 
 The small arrows are Unity's: on the outer edge, one per open window (three
 at most); in the middle, the one of the current application.
 
 ## Installation
 
-Rust is needed (`rustup`); there is no other dependency to install.
+On Pop!_OS and Ubuntu, from the same apt repository as the Reader's desktop
+apps ([funkypitt.github.io/apt-repo](https://funkypitt.github.io/apt-repo)):
 
 ```sh
-./install.sh                     # builds, installs, starts with the session
-./install.sh --cosmic-dock off   # also switches COSMIC's dock off
+sudo apt install quai
+```
+
+The package starts Quai with every COSMIC session, for every user, from the
+next login on; the `.deb` is also attached to each
+[release](https://github.com/funkypitt/quai/releases). On Arch and Manjaro,
+`packaging/PKGBUILD`.
+
+From the source, Rust is needed (`rustup`); there is no other dependency:
+
+```sh
+./install.sh                     # builds, installs for this user, starts with the session
 ./uninstall.sh                   # removes Quai and gives COSMIC's dock back
 ```
 
 Quai runs as a service of the session (`systemctl --user status quai`),
-restarted if it fails.
+restarted if it fails. When it starts it switches COSMIC's own dock off, so
+that only one dock shows (`hide_cosmic_dock = false` in the settings keeps
+both); `quai --cosmic-dock on` gives COSMIC's dock back at any time.
 
 ## Settings
 
@@ -61,6 +77,7 @@ applications pinned in COSMIC's dock are taken over.
 | `blur` | `true`, `false` | blur behind the dock |
 | `output` | `"all"` or an output name | screens where the dock shows |
 | `icon_theme` | name | empty: the desktop's theme |
+| `hide_cosmic_dock` | `true`, `false` | switch COSMIC's own dock off when Quai starts |
 
 ## Known limits
 
@@ -68,7 +85,8 @@ applications pinned in COSMIC's dock are taken over.
 - COSMIC's `zcosmic_*` protocols are not stable: an update of COSMIC may
   require adapting Quai (the version of the library is pinned in
   `Cargo.toml`).
-- Tried on a single screen, at 100 % scale.
+- Tried on a single screen, at 100 % scale. Touch is wired through the same
+  path as the mouse, but has not been tried on a touchscreen yet.
 
 ## Development
 
