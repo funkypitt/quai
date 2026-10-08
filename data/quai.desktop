@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Quai
+Comment=Two-column Unity-style dock for COSMIC
+Comment[fr]=Dock à deux colonnes façon Unity pour COSMIC
+Exec=quai
+Icon=quai
+Terminal=false
+Categories=Utility;
+Keywords=dock;launcher;unity;cosmic;
+StartupNotify=false

@@ -47,12 +47,17 @@ next login on; the `.deb` is also attached to each
 [release](https://github.com/funkypitt/quai/releases). On Arch and Manjaro,
 `packaging/PKGBUILD`.
 
-From the source, Rust is needed (`rustup`); there is no other dependency:
+From the source, Rust is needed (`rustup`); there is no other dependency. Run the
+script as yourself, never with `sudo` (it installs in your home and your session):
 
 ```sh
 ./install.sh                     # builds, installs for this user, starts with the session
 ./uninstall.sh                   # removes Quai and gives COSMIC's dock back
 ```
+
+Quai is then listed among the applications (to start it by hand), and
+`quai --doctor` says in one screen whether the session is COSMIC, whether the
+service is enabled and running, and where the settings are.
 
 Quai runs as a service of the session (`systemctl --user status quai`),
 restarted if it fails. When it starts it switches COSMIC's own dock off, so

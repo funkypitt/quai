@@ -7,6 +7,7 @@ mod apps;
 mod config;
 mod cosmicdock;
 mod dock;
+mod doctor;
 mod i18n;
 mod launch;
 mod model;
@@ -30,6 +31,7 @@ Usage:
         [--height N] [--scale S]
   quai --windows            list the open windows and the application of each
   quai --cosmic-dock on|off show COSMIC's own dock again, or hide it
+  quai --doctor             what the session, the service and the settings look like
   quai --version
   quai --help
 
@@ -89,6 +91,10 @@ fn main() -> Result<()> {
             return preview::write(&PathBuf::from(out), height, scale);
         }
         Some("--windows") => return windows::run(),
+        Some("--doctor") => {
+            doctor::run();
+            return Ok(());
+        }
         Some("--cosmic-dock") => {
             return match value("--cosmic-dock").as_deref() {
                 Some("on") => cosmicdock::set(true),

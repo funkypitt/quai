@@ -12,6 +12,8 @@ install -Dm755 "$SRC/target/release/quai" "$ROOT/usr/bin/quai"
 # the same unit as data/quai.service, pointing at the packaged binary
 sed 's|ExecStart=%h/.local/bin/quai|ExecStart=/usr/bin/quai|' "$SRC/data/quai.service" > "$HERE/quai.service.tmp"
 install -Dm644 "$HERE/quai.service.tmp" "$ROOT/usr/lib/systemd/user/quai.service"; rm -f "$HERE/quai.service.tmp"
+install -Dm644 "$SRC/data/quai.desktop" "$ROOT/usr/share/applications/quai.desktop"
+install -Dm644 "$SRC/data/quai.svg" "$ROOT/usr/share/icons/hicolor/scalable/apps/quai.svg"
 install -Dm644 "$SRC/LICENSE" "$ROOT/usr/share/doc/quai/copyright"
 install -Dm644 "$SRC/README.md" "$ROOT/usr/share/doc/quai/README.md"
 install -Dm644 "$SRC/README.fr.md" "$ROOT/usr/share/doc/quai/README.fr.md"
