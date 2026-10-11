@@ -33,6 +33,8 @@ proportions (54 px tiles, 48 px icons, 5 px gaps).
 The small arrows are Unity's: on the outer edge, one per open window (three
 at most); in the middle, the one of the current application.
 
+The chevron at the foot of the dock hides it: it then lives as a thin strip at the screen's edge, comes out when the pointer reaches the edge and goes back once the pointer leaves. The chevron (or the menu's « Hide the dock ») brings it back for good.
+
 ## Installation
 
 On Pop!_OS and Ubuntu, from the same apt repository as the Reader's desktop
@@ -83,6 +85,7 @@ applications pinned in COSMIC's dock are taken over.
 | `output` | `"all"` or an output name | screens where the dock shows |
 | `icon_theme` | name | empty: the desktop's theme |
 | `hide_cosmic_dock` | `true`, `false` | switch COSMIC's own dock off when Quai starts |
+| `autohide` | `true`, `false` | keep the dock out of the way: a strip at the screen's edge, shown when the pointer reaches it |
 
 ## Known limits
 

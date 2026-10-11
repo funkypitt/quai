@@ -47,6 +47,10 @@ pub struct Config {
     pub tooltip_delay_ms: u64,
     /// Switch COSMIC's own dock off when Quai starts (`quai --cosmic-dock on` gives it back).
     pub hide_cosmic_dock: bool,
+    /// The dock keeps out of the way: a thin strip at the screen's edge, shown when the
+    /// pointer reaches it, hidden again when it leaves. The button at the dock's foot
+    /// toggles it too.
+    pub autohide: bool,
 }
 
 impl Default for Config {
@@ -64,6 +68,7 @@ impl Default for Config {
             icon_theme: String::new(),
             tooltip_delay_ms: 350,
             hide_cosmic_dock: true,
+            autohide: false,
         }
     }
 }
@@ -100,6 +105,7 @@ const HEADER: &str = "\
 # output           \"all\" or an output name such as \"HDMI-A-4\"
 # icon_theme       empty = the desktop's theme
 # hide_cosmic_dock switch COSMIC's own dock off when Quai starts (quai --cosmic-dock on gives it back)
+# autohide         keep the dock out of the way: a strip at the edge, shown when the pointer reaches it
 
 ";
 

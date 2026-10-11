@@ -14,6 +14,7 @@ pub enum Msg {
     MinimizeOnClick,
     Buttons,
     OpenSettings,
+    Autohide,
     Applications,
     Workspaces,
     Untitled,
@@ -134,6 +135,13 @@ pub fn text(msg: Msg, lang: Lang) -> &'static str {
         (OpenSettings, Es) => "Abrir el archivo de ajustes",
         (OpenSettings, Pt) => "Abrir o ficheiro de definições",
         (OpenSettings, Ru) => "Открыть файл настроек",
+
+        (Autohide, En) => "Hide the dock (it shows at the screen's edge)",
+        (Autohide, Fr) => "Masquer le dock (il réapparaît au bord de l'écran)",
+        (Autohide, De) => "Dock ausblenden (erscheint am Bildschirmrand wieder)",
+        (Autohide, Es) => "Ocultar el dock (reaparece en el borde de la pantalla)",
+        (Autohide, Pt) => "Ocultar a doca (reaparece na borda do ecrã)",
+        (Autohide, Ru) => "Скрывать док (появляется у края экрана)",
 
         (Applications, En) => "Applications",
         (Applications, Fr) => "Applications",

@@ -65,7 +65,7 @@ use crate::{
     model::{self, Action, Button, LEFT, Tile, TileId, Win, WinId},
     wallpaper,
     render::{
-        self, BOTTOM_PAD, COL_W, COLUMNS, DOCK_W, HEADER_H, MenuLayout, MenuRow, PITCH, Scene,
+        self, BOTTOM_PAD, COL_W, COLUMNS, DOCK_W, FOOTER_H, HEADER_H, MenuLayout, MenuRow, PITCH, STRIP_W, Scene,
         TILE, TOP_PAD, TileDraw, tile_x,
     },
 };
@@ -112,6 +112,8 @@ pub struct Bar {
     pub dirty: bool,
     pub scroll: [f32; COLUMNS],
     pub buffer: Option<Buffer>,
+    /// Drawn as the thin strip of a hidden dock.
+    pub strip: bool,
 }
 
 /// A tile on screen, with the state of its animations.
@@ -132,6 +134,7 @@ pub struct Sprite {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
+    ToggleAutohide,
     Activate(WinId),
     Launch(String),
     LaunchAction(String, String),
@@ -299,6 +302,12 @@ pub struct Dock {
     pub notices: Option<calloop::channel::Sender<Notice>>,
     pub tint: Rgb,
     pub exit: bool,
+    /// Auto-hide: the dock lives as a strip at the edge…
+    pub hidden: bool,
+    /// …and is on show for the moment (pointer on it, menu open).
+    pub revealed: bool,
+    hide_generation: u64,
+    footer_hover: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -369,7 +378,12 @@ impl Dock {
             notices: None,
             tint: wallpaper::NEUTRAL,
             exit: false,
+            hidden: false,
+            revealed: false,
+            hide_generation: 0,
+            footer_hover: false,
         };
+        dock.hidden = dock.config.autohide;
         dock.refresh();
         // Tiles present at start are simply there; only later ones fade in.
         for s in &mut dock.sprites {
@@ -404,6 +418,7 @@ impl Dock {
             effect,
             probe,
             replaced_for: None,
+            strip: false,
             settled: false,
             scale: 1.0,
             height: 0.0,
@@ -467,9 +482,14 @@ impl Dock {
             Some(output),
         );
         layer.set_anchor(Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT);
-        // One pixel short of its width: see `settle`.
-        layer.set_size(DOCK_W as u32 - 1, 0);
-        layer.set_exclusive_zone(DOCK_W as i32);
+        if self.hidden {
+            layer.set_size(if self.revealed { DOCK_W as u32 } else { STRIP_W as u32 }, 0);
+            layer.set_exclusive_zone(0);
+        } else {
+            // One pixel short of its width: see `settle`.
+            layer.set_size(DOCK_W as u32 - 1, 0);
+            layer.set_exclusive_zone(DOCK_W as i32);
+        }
         layer.set_keyboard_interactivity(KeyboardInteractivity::None);
         layer.commit();
         Shell { layer, viewport, fractional, effect }
@@ -589,7 +609,8 @@ impl Dock {
             bar.configured = false;
             bar.frame_pending = false;
             bar.dirty = true;
-            bar.settled = false;
+            bar.settled = self.hidden;
+            bar.strip = self.hidden && !self.revealed;
             bar.replaced_for = Some(free);
         }
     }
@@ -659,7 +680,7 @@ impl Dock {
     fn max_scroll(&self, bar: usize, col: usize) -> f32 {
         let n = self.columns[col].len() as f32;
         let content = if n > 0.0 { n * PITCH - render::GAP + BOTTOM_PAD } else { 0.0 };
-        (content - (self.bars[bar].height - self.top())).max(0.0)
+        (content - (self.bars[bar].height - self.top() - FOOTER_H)).max(0.0)
     }
 
     fn clamp_scrolls(&mut self) {
@@ -956,12 +977,73 @@ impl Dock {
             tiles,
             overflow,
             drop_mark: None,
+            footer: Some((self.hidden, if self.footer_hover { 1.0 } else { 0.0 })),
         }
+    }
+
+    /// The hide/show chevron at the foot of the dock is under this point.
+    fn footer_at(&self, bar: usize, x: f32, y: f32) -> bool {
+        self.bars.get(bar).is_some_and(|b| (0.0..DOCK_W).contains(&x) && y >= b.height - FOOTER_H && y < b.height)
+    }
+
+    // --------------------------------------------------------- hiding
+
+    /// Hidden or shown, for good: the choice is kept in the settings.
+    pub fn toggle_hidden(&mut self) {
+        self.hidden = !self.hidden;
+        self.revealed = self.hidden; // stays under the pointer until it leaves
+        self.config.autohide = self.hidden;
+        self.save_config();
+        self.apply_visibility();
+    }
+
+    fn reveal(&mut self) {
+        if self.hidden && !self.revealed {
+            self.revealed = true;
+            self.apply_visibility();
+        }
+    }
+
+    /// Hides again a little after the pointer has left, unless something keeps the dock busy.
+    pub fn schedule_hide(&mut self) {
+        if !(self.hidden && self.revealed) {
+            return;
+        }
+        self.hide_generation += 1;
+        let generation = self.hide_generation;
+        let _ = self.loop_handle.insert_source(Timer::from_duration(Duration::from_millis(600)), move |_, _, dock| {
+            if dock.hidden && dock.revealed && dock.hide_generation == generation {
+                let busy = dock.pointer.bar.is_some() || dock.pointer.press.is_some() || dock.popup.is_some() || dock.drag.is_some() || dock.touch.is_some();
+                if busy {
+                    return TimeoutAction::ToDuration(Duration::from_millis(600));
+                }
+                dock.revealed = false;
+                dock.apply_visibility();
+            }
+            TimeoutAction::Drop
+        });
+    }
+
+    /// Gives every bar the size and the exclusive zone of its state: the whole dock, the
+    /// dock shown over the windows, or the strip at the edge.
+    pub fn apply_visibility(&mut self) {
+        let strip = self.hidden && !self.revealed;
+        self.close_tooltip();
+        for bar in &mut self.bars {
+            bar.layer.set_size(if strip { STRIP_W as u32 } else { DOCK_W as u32 }, 0);
+            bar.layer.set_exclusive_zone(if self.hidden { 0 } else { DOCK_W as i32 });
+            bar.layer.commit();
+            bar.strip = strip;
+            bar.settled = true; // the size just changed: the compositor recounts the windows' room
+            bar.buffer = None;
+            bar.dirty = true;
+        }
+        self.footer_hover = false;
     }
 
     pub fn hit(&self, bar: usize, x: f32, y: f32) -> Option<Hit> {
         let b = self.bars.get(bar)?;
-        if !(0.0..DOCK_W).contains(&x) || y < 0.0 || y >= b.height {
+        if !(0.0..DOCK_W).contains(&x) || y < 0.0 || y >= b.height - FOOTER_H {
             return None;
         }
         let col = ((x / COL_W) as usize).min(COLUMNS - 1);
@@ -1033,6 +1115,11 @@ impl Dock {
     pub fn pointer_enter(&mut self, bar: usize, x: f32, y: f32) {
         self.pointer.bar = Some(bar);
         self.pointer.pos = (x, y);
+        self.hide_generation += 1; // a pending hide is off
+        if self.hidden && !self.revealed {
+            self.reveal();
+            return;
+        }
         self.set_hover(bar, x, y);
     }
 
@@ -1047,12 +1134,22 @@ impl Dock {
             self.hover_generation += 1;
             self.mark_dirty();
         }
+        if self.footer_hover {
+            self.footer_hover = false;
+            self.mark_dirty();
+        }
         self.close_tooltip();
+        self.schedule_hide();
     }
 
     pub fn pointer_motion(&mut self, bar: usize, x: f32, y: f32) {
         self.pointer.bar = Some(bar);
         self.pointer.pos = (x, y);
+        let fh = self.footer_at(bar, x, y) && self.drag.is_none();
+        if fh != self.footer_hover {
+            self.footer_hover = fh;
+            self.mark_dirty();
+        }
         if self.drag.is_some() {
             self.update_drag();
             return;
@@ -1130,6 +1227,8 @@ impl Dock {
         self.mark_dirty();
         if let Some(d) = self.drag.take() {
             self.drop_tile(d);
+        } else if button == BTN_LEFT && self.footer_at(bar, x, y) && self.footer_at(bar, press.origin.0, press.origin.1) {
+            self.toggle_hidden();
         } else if let (Some(was), Some(now)) = (press.hit, self.hit(bar, x, y))
             && was.tile.id == now.tile.id
         {
@@ -1356,6 +1455,11 @@ impl Dock {
         }
         let theme_changed = new.icon_theme != self.config.icon_theme;
         self.config = new;
+        if self.config.autohide != self.hidden {
+            self.hidden = self.config.autohide;
+            self.revealed = false;
+            self.apply_visibility();
+        }
         if theme_changed {
             self.db.set_theme(&self.config.icon_theme);
             self.sprites.clear();
@@ -1421,6 +1525,7 @@ impl Dock {
                 self.config.buttons = !self.config.buttons;
                 self.save_config();
             }
+            MenuAction::ToggleAutohide => self.toggle_hidden(),
             MenuAction::OpenSettings => {
                 let path = crate::config::config_path().to_string_lossy().into_owned();
                 launch::run(&["xdg-open".into(), path], "quai-settings", None, None);
@@ -1437,6 +1542,9 @@ impl Dock {
                 v.destroy();
             }
             self.mark_dirty();
+            if self.pointer.bar.is_none() {
+                self.schedule_hide();
+            }
         }
     }
 
@@ -1504,6 +1612,7 @@ impl Dock {
                 check(Msg::LightAll, self.config.backlight == Backlight::Always, MenuAction::ToggleBacklight),
                 check(Msg::MinimizeOnClick, self.config.click_active == ClickActive::Minimize, MenuAction::ToggleMinimize),
                 check(Msg::Buttons, self.config.buttons, MenuAction::ToggleButtons),
+                check(Msg::Autohide, self.config.autohide, MenuAction::ToggleAutohide),
                 MenuRow::Separator,
                 entry(tr(Msg::OpenSettings).to_string(), MenuAction::OpenSettings),
             ];
@@ -1674,8 +1783,14 @@ impl Dock {
     }
 
     fn draw_bar(&mut self, i: usize, animating: bool) {
-        let scene = self.scene(i);
-        let Some(pix) = render::render_dock(&scene) else { return };
+        let strip = self.bars[i].strip;
+        let pix = if strip {
+            render::render_strip(self.bars[i].height, self.bars[i].scale, self.tint, self.config.opacity)
+        } else {
+            render::render_dock(&self.scene(i))
+        };
+        let Some(pix) = pix else { return };
+        let dest_w = if strip { STRIP_W } else { DOCK_W };
         let (w, h) = (pix.width() as i32, pix.height() as i32);
         let bar = &mut self.bars[i];
         let reusable = bar
@@ -1695,14 +1810,14 @@ impl Dock {
         }
         surface.damage_buffer(0, 0, w, h);
         match &bar.viewport {
-            Some(v) => v.set_destination(DOCK_W as i32, (bar.height as i32).max(1)),
+            Some(v) => v.set_destination(dest_w as i32, (bar.height as i32).max(1)),
             None => surface.set_buffer_scale((bar.scale.round() as i32).max(1)),
         }
         surface.frame(&self.qh, surface.clone());
         bar.frame_pending = true;
         bar.dirty = animating;
         bar.layer.commit();
-        if !bar.settled {
+        if !bar.settled && !strip {
             Self::settle(bar);
         }
     }

@@ -35,6 +35,8 @@ Les petites flèches reprennent celles d'Unity : sur le bord extérieur, une
 par fenêtre ouverte (trois au plus) ; au centre, celle de l'application en
 cours.
 
+Le chevron au pied du dock le masque : il vit alors en fine bande au bord de l'écran, sort quand le pointeur atteint le bord et se retire une fois le pointeur parti. Le chevron (ou « Masquer le dock » dans le menu) le ramène pour de bon.
+
 ## Installation
 
 Sur Pop!_OS et Ubuntu, depuis le même dépôt apt que les applications de
@@ -86,6 +88,7 @@ par un clic droit sur le dock. Au premier lancement, les applications
 | `output` | `"all"` ou un nom d'écran | écrans où le dock paraît |
 | `icon_theme` | nom | vide : le thème du bureau |
 | `hide_cosmic_dock` | `true`, `false` | éteindre le dock de COSMIC au démarrage de Quai |
+| `autohide` | `true`, `false` | garder le dock à l'écart : une bande au bord de l'écran, montrée quand le pointeur l'atteint |
 
 ## Limites connues
 

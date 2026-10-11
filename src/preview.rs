@@ -90,6 +90,7 @@ pub fn write(out: &Path, height: f32, scale: f32) -> Result<()> {
         tiles,
         overflow: [(false, false); COLUMNS],
         drop_mark: None,
+        footer: Some((false, 0.0)),
     };
     let dock = render::render_dock(&scene).context("cannot draw the dock")?;
 

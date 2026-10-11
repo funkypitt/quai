@@ -27,6 +27,10 @@ pub const RADIUS: f32 = 5.0;
 pub const PITCH: f32 = TILE + GAP;
 /// Height of the buttons row, separator included.
 pub const HEADER_H: f32 = TOP_PAD + TILE + GAP + 1.0 + GAP;
+/// The foot of the dock: the hide/show chevron.
+pub const FOOTER_H: f32 = 18.0;
+/// What stays at the screen's edge when the dock is hidden.
+pub const STRIP_W: f32 = 3.0;
 /// Margin around a tile sprite, leaving room for the glow.
 const SPRITE_M: f32 = 12.0;
 const FADE: f32 = 18.0;
@@ -76,6 +80,8 @@ pub struct Scene {
     pub overflow: [(bool, bool); COLUMNS],
     /// Where a dragged tile would land: column and y of the gap.
     pub drop_mark: Option<(usize, f32)>,
+    /// The chevron at the foot: (dock hidden, hover 0..1).
+    pub footer: Option<(bool, f32)>,
 }
 
 fn paint_color(c: Color) -> Paint<'static> {
@@ -348,6 +354,9 @@ pub fn render_dock(scene: &Scene) -> Option<Pixmap> {
     let mut erase = Paint::default();
     erase.blend_mode = BlendMode::Clear;
     fill_rect(&mut layer, 0.0, 0.0, DOCK_W, top - 1.0, &erase, tf);
+    if scene.footer.is_some() {
+        fill_rect(&mut layer, 0.0, scene.height - FOOTER_H, DOCK_W, FOOTER_H, &erase, tf);
+    }
     for (col, (above, below)) in scene.overflow.iter().enumerate() {
         let x = col as f32 * COL_W;
         let mut fade = |y0: f32, y1: f32| {
@@ -362,7 +371,8 @@ pub fn render_dock(scene: &Scene) -> Option<Pixmap> {
             fade(top - 1.0, top - 1.0 + FADE);
         }
         if *below {
-            fade(scene.height, scene.height - FADE);
+            let bottom = scene.height - if scene.footer.is_some() { FOOTER_H } else { 0.0 };
+            fade(bottom, bottom - FADE);
         }
     }
 
@@ -395,6 +405,31 @@ pub fn render_dock(scene: &Scene) -> Option<Pixmap> {
     for t in scene.tiles.iter().filter(|t| t.lifted) {
         draw_tile(&mut pix, t, s);
     }
+    if let Some((hidden, hover)) = scene.footer {
+        // A chevron: « to hide, » when the dock only shows at the edge.
+        let cx = DOCK_W / 2.0;
+        let cy = scene.height - FOOTER_H / 2.0 - 1.0;
+        let (a, b) = if hidden { (-3.5, 3.5) } else { (3.5, -3.5) };
+        let mut pb = PathBuilder::new();
+        for dx in [-4.0, 3.0] {
+            pb.move_to(cx + dx + a, cy - 4.0);
+            pb.line_to(cx + dx + b, cy);
+            pb.line_to(cx + dx + a, cy + 4.0);
+        }
+        if let Some(path) = pb.finish() {
+            stroke(&mut pix, &path, &paint_color(WHITE.color(0.45 + 0.45 * hover)), 1.6, tf);
+        }
+    }
+    Some(pix)
+}
+
+/// The dock hidden: a thin strip at the screen's edge, the full height.
+pub fn render_strip(height: f32, s: f32, tint: Rgb, opacity: f32) -> Option<Pixmap> {
+    let (w, h) = ((STRIP_W * s).round().max(1.0) as u32, (height * s).round().max(1.0) as u32);
+    let mut pix = Pixmap::new(w, h)?;
+    pix.fill(tint.scaled(0.78).color((opacity + 0.25).min(1.0)));
+    let tf = Transform::from_scale(s, s);
+    fill_rect(&mut pix, STRIP_W - 1.0, 0.0, 1.0, height, &paint_color(WHITE.color(0.22)), tf);
     Some(pix)
 }
 
